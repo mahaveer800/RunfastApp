@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +8,7 @@ import BootSplash from 'react-native-bootsplash';
 import { RunningScreen } from './src/screens/Running/RunningScreen';
 import { HistoryScreen } from './src/screens/History/HistoryScreen';
 import { GalleryScreen } from './src/screens/Gallery/GalleryScreen';
+import { AlarmScreen } from './src/screens/Alarm/AlarmScreen'; // <-- 1. IMPORT ALARM SCREEN HERE
 import { GalleryLockModal } from './src/components/GalleryLockModal';
 import { COLORS } from './src/constants/colors';
 import { AlertProvider } from './src/context/AlertContext';
@@ -52,6 +54,7 @@ function MainApp() {
       activeIcon: 'walk',
       inactiveIcon: 'walk-outline',
     },
+    { id: 'alarm', label: 'Alarm', activeIcon: 'alarm', inactiveIcon: 'alarm-outline' },
     {
       id: 'history',
       label: 'History',
@@ -72,6 +75,9 @@ function MainApp() {
         {activeTab === 'running' && (
           <RunningScreen onRunSaved={handleRunSaved} />
         )}
+
+        {/* 2. PASTE ALARM SCREEN RENDER LINE HERE */}
+        {activeTab === 'alarm' && <AlarmScreen />}
 
         {activeTab === 'history' && (
           <HistoryScreen key={historyKey} />
@@ -182,10 +188,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
   },
-
-  // activeTabItem: {
-  //   backgroundColor: 'rgba(255, 87, 34, 0.12)',
-  // },
 
   tabLabel: {
     fontSize: 12,
