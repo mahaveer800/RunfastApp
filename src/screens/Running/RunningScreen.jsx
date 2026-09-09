@@ -47,7 +47,7 @@ export const RunningScreen = ({ navigation, onRunSaved }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="flame" size={24} color={COLORS.primary} style={styles.headerIcon} />
+   
         <Text style={styles.headerTitle}>RunFast Tracker</Text>
       </View>
 
