@@ -86,12 +86,37 @@ android {
     }
 }
 
+// dependencies {
+
+//     /**
+//      * React Native
+//      */
+//     implementation("com.facebook.react:react-android")
+
+//     /**
+//      * Hermes
+//      */
+//     if (hermesEnabled.toBoolean()) {
+//         implementation("com.facebook.react:hermes-android")
+//     } else {
+//         /**
+//          * JavaScriptCore
+//          */
+//         implementation jscFlavor
+//     }
+// }
+
 dependencies {
 
     /**
      * React Native
      */
     implementation("com.facebook.react:react-android")
+
+    /**
+     * Google Fused Location Provider
+     */
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     /**
      * Hermes
@@ -105,6 +130,7 @@ dependencies {
         implementation jscFlavor
     }
 }
+
 
 /**
  * React Native Vector Icons

@@ -4,11 +4,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BootSplash from 'react-native-bootsplash';
-
 import { RunningScreen } from './src/screens/Running/RunningScreen';
 import { HistoryScreen } from './src/screens/History/HistoryScreen';
 import { GalleryScreen } from './src/screens/Gallery/GalleryScreen';
-import { AlarmScreen } from './src/screens/Alarm/AlarmScreen'; // <-- 1. IMPORT ALARM SCREEN HERE
+import { AlarmScreen } from './src/screens/Alarm/AlarmScreen'; 
 import { GalleryLockModal } from './src/components/GalleryLockModal';
 import { COLORS } from './src/constants/colors';
 import { AlertProvider } from './src/context/AlertContext';
