@@ -15,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { getAllGalleryItems, saveGalleryItem, deleteGalleryItem } from '../../services/galleryService';
+import { getAllGalleryItems, saveGalleryItem, deleteGalleryItem, syncCloudGalleryItems } from '../../services/galleryService';
+import { getLocalUser, logoutUser } from '../../services/authService';
 import { formatDate } from '../../utils/date';
 import { COLORS } from '../../constants/colors';
 import { useAlert } from '../../context/AlertContext';
@@ -26,17 +27,21 @@ const COLUMN_SIZE = (width - 48) / 2;
 export const GalleryScreen = ({ onLockGallery }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState(null); // Fullscreen preview
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [pickerModalVisible, setPickerModalVisible] = useState(false);
-  const [pendingImage, setPendingImage] = useState(null); // Image picked, waiting for caption
+  const [pendingImage, setPendingImage] = useState(null);
   const [captionInput, setCaptionInput] = useState('');
   const [savingImage, setSavingImage] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   const { showAlert } = useAlert();
 
   const loadGallery = useCallback(async () => {
     try {
       setLoading(true);
+      const u = await getLocalUser();
+      setUserProfile(u);
+      await syncCloudGalleryItems();
       const data = await getAllGalleryItems();
       const sorted = [...data].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setItems(sorted);
@@ -50,33 +55,54 @@ export const GalleryScreen = ({ onLockGallery }) => {
   useEffect(() => {
     loadGallery();
   }, [loadGallery]);
+const handlePickFromGallery = async () => {
+  setPickerModalVisible(false);
+  try {
+    const response = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+      selectionLimit: 1,
+      includeBase64: true,
+    });
 
-  const handlePickFromGallery = () => {
-    setPickerModalVisible(false);
-    launchImageLibrary(
-      {
-        mediaType: 'photo',
-        quality: 0.8,
-        selectionLimit: 1,
-      },
-      (response) => {
-        if (response.didCancel) return;
-        if (response.errorCode) {
-          showAlert({
-            title: 'Image Error',
-            message: response.errorMessage || 'Failed to pick image.',
-            type: 'error',
-          });
-          return;
-        }
-        if (response.assets && response.assets.length > 0) {
-          const asset = response.assets[0];
-          setPendingImage(asset.uri);
-          setCaptionInput('');
-        }
-      }
-    );
-  };
+    if (response.didCancel) return;
+
+    if (response.errorCode) {
+      showAlert({
+        title: 'Image Error',
+        message: response.errorMessage || 'Failed to pick image.',
+        type: 'error',
+      });
+      return;
+    }
+
+    const asset = response.assets?.[0];
+
+    if (!asset?.uri) {
+      showAlert({
+        title: 'Image Error',
+        message: 'Selected image URI is missing.',
+        type: 'error',
+      });
+      return;
+    }
+
+    console.log('Selected image URI:', asset.uri);
+    console.log('Selected image type:', asset.type);
+    console.log('Selected image size:', asset.fileSize);
+
+    setPendingImage(asset);
+    setCaptionInput('');
+  } catch (error) {
+    console.error('Image picker error:', error?.stack || error);
+
+    showAlert({
+      title: 'Image Error',
+      message: error?.message || 'Failed to open image picker.',
+      type: 'error',
+    });
+  }
+};
 
   const handleTakePhoto = () => {
     setPickerModalVisible(false);
@@ -85,6 +111,7 @@ export const GalleryScreen = ({ onLockGallery }) => {
         mediaType: 'photo',
         quality: 0.8,
         saveToPhotos: true,
+        includeBase64: true,
       },
       (response) => {
         if (response.didCancel) return;
@@ -98,7 +125,7 @@ export const GalleryScreen = ({ onLockGallery }) => {
         }
         if (response.assets && response.assets.length > 0) {
           const asset = response.assets[0];
-          setPendingImage(asset.uri);
+          setPendingImage(asset);
           setCaptionInput('');
         }
       }
@@ -110,7 +137,9 @@ export const GalleryScreen = ({ onLockGallery }) => {
     try {
       setSavingImage(true);
       await saveGalleryItem({
-        imageUri: pendingImage,
+        imageUri: pendingImage.uri || pendingImage,
+        base64: pendingImage.base64,
+        contentType: pendingImage.type,
         caption: captionInput.trim(),
       });
       setPendingImage(null);
@@ -122,10 +151,10 @@ export const GalleryScreen = ({ onLockGallery }) => {
         type: 'success',
       });
     } catch (error) {
-      console.error('Error saving image:', error);
+      console.error('Error saving image:', error?.message || error);
       showAlert({
         title: 'Save Failed',
-        message: 'Could not save the image to the gallery.',
+        message: error?.message || 'Could not save the image to the gallery.',
         type: 'error',
       });
     } finally {
@@ -209,7 +238,14 @@ export const GalleryScreen = ({ onLockGallery }) => {
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
           <Ionicons name="images" size={22} color={COLORS.primary} style={{ marginRight: 8 }} />
-          <Text style={styles.headerTitle}>Run Gallery</Text>
+          <View>
+            <Text style={styles.headerTitle}>Run Gallery</Text>
+            {userProfile?.email ? (
+              <Text style={styles.userEmailText} numberOfLines={1}>
+                {userProfile.email}
+              </Text>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.headerActions}>
@@ -219,7 +255,7 @@ export const GalleryScreen = ({ onLockGallery }) => {
             activeOpacity={0.7}
           >
             <Ionicons name="cloud-upload-outline" size={18} color={COLORS.text} style={{ marginRight: 6 }} />
-            <Text style={styles.addBtnText}>Add Photo</Text>
+            <Text style={styles.addBtnText}>Add</Text>
           </TouchableOpacity>
 
           {onLockGallery ? (
@@ -232,6 +268,27 @@ export const GalleryScreen = ({ onLockGallery }) => {
               <Ionicons name="lock-closed" size={18} color={COLORS.textSecondary} />
             </TouchableOpacity>
           ) : null}
+
+          <TouchableOpacity
+            style={styles.lockBtn}
+            onPress={() => {
+              showAlert({
+                title: 'Sign Out / Lock',
+                message: 'Do you want to sign out from this device?',
+                type: 'warning',
+                confirmText: 'Sign Out',
+                cancelText: 'Cancel',
+                onConfirm: async () => {
+                  await logoutUser();
+                  if (onLockGallery) onLockGallery();
+                },
+              });
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -304,7 +361,11 @@ export const GalleryScreen = ({ onLockGallery }) => {
             <Text style={styles.captionTitle}>Add Caption</Text>
 
             {pendingImage ? (
-              <Image source={{ uri: pendingImage }} style={styles.pendingPreview} resizeMode="cover" />
+              <Image
+                source={{ uri: pendingImage?.uri || pendingImage }}
+                style={styles.pendingPreview}
+                resizeMode="cover"
+              />
             ) : null}
 
             <TextInput
@@ -403,9 +464,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
+  },
+  userEmailText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    maxWidth: 160,
   },
   headerActions: {
     flexDirection: 'row',
